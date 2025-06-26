@@ -124,12 +124,12 @@ class DomainFinder:
         """Print the tool banner"""
         banner = """
 
-________                            .__          ___________.__             .___              
-\______ \    ____    _____  _____   |__|  ____   \_   _____/|__|  ____    __| _/ ____ _______ 
+________                            .__          ___________.__             .___
+\______ \    ____    _____  _____   |__|  ____   \_   _____/|__|  ____    __| _/ ____ _______
  |    |  \  /  _ \  /     \ \__  \  |  | /    \   |    __)  |  | /    \  / __ |_/ __ \\_  __ \
  |    `   \(  <_> )|  Y Y  \ / __ \_|  ||   |  \  |     \   |  ||   |  \/ /_/ |\  ___/ |  | \/
-/_______  / \____/ |__|_|  /(____  /|__||___|  /  \___  /   |__||___|  /\____ | \___  >|__|   
-        \/               \/      \/          \/       \/             \/      \/     \/        
+/_______  / \____/ |__|_|  /(____  /|__||___|  /  \___  /   |__||___|  /\____ | \___  >|__|
+        \/               \/      \/          \/       \/             \/      \/     \/
                              Enhanced Version 3.0
                                     By Easin Arafat
         Advanced Subdomain Discovery with Multiple Techniques
@@ -915,6 +915,18 @@ ________                            .__          ___________.__             .___
             'cloud_urls': sorted(list(self.cloud_urls)),
             'github_secrets': sorted(list(self.github_secrets))
         }
+    def check_status_code(self, url, timeout=5):
+        """Check HTTP status code for a URL"""
+        try:
+            response = self.session.head(url, timeout=timeout, allow_redirects=True, verify=False)
+            return response.status_code
+        except:
+            try:
+                # Try GET if HEAD fails
+                response = self.session.get(url, timeout=timeout, allow_redirects=True, verify=False)
+                return response.status_code
+            except:
+                return None
 
     def save_results(self, results, output_dir='results'):
         """Save results to files"""
@@ -1076,10 +1088,21 @@ Features:
             for subdomain in results['subdomains']:
                 print(subdomain)
 
-            print(f"\n🔗 Clickable Links:")
+            print(f"\n🔗 Clickable Links with Status Codes:")
             print("-" * 40)
-            for subdomain in results['subdomains']:
-                print(f"https://{subdomain}")
+            print("Checking status codes...")
+            for i, subdomain in enumerate(sorted(results['subdomains']), 1):
+                url = f"https://{subdomain}"
+                status_code = finder.check_status_code(url)
+
+                if status_code:
+                    print(f"{url} [{status_code}]")
+                else:
+                    print(f"{url} [TIMEOUT]")
+
+                # Progress indicator for large lists
+                if i % 50 == 0:
+                    print(f"  ... checked {i}/{len(results['subdomains'])} subdomains")
 
             if results['secrets']:
                 print(f"\nSecrets found ({sum(len(secrets) for secrets in results['secrets'].values())}):")
