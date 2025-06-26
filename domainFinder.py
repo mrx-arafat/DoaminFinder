@@ -87,16 +87,22 @@ class DomainFinder:
         """Load configuration from environment"""
         self.config = {
             'max_threads': int(os.getenv('MAX_THREADS', '50')),
-            'dns_timeout': int(os.getenv('DNS_TIMEOUT', '5')),
-            'http_timeout': int(os.getenv('HTTP_TIMEOUT', '10')),
+            'dns_timeout': int(os.getenv('DNS_TIMEOUT', '8')),  # Increased from 5 to 8
+            'http_timeout': int(os.getenv('HTTP_TIMEOUT', '20')),  # Increased from 10 to 20
             'api_rate_limit': int(os.getenv('API_RATE_LIMIT', '10')),
             'dns_rate_limit': int(os.getenv('DNS_RATE_LIMIT', '100')),
             'use_large_wordlist': os.getenv('USE_LARGE_WORDLIST', 'true').lower() == 'true',
             'recursive_depth': int(os.getenv('RECURSIVE_DEPTH', '3')),
-            'recursive_enabled': os.getenv('RECURSIVE_ENABLED', 'true').lower() == 'true',
-            'verify_subdomains': os.getenv('VERIFY_SUBDOMAINS', 'true').lower() == 'true',
+            'recursive_enabled': False,  # Disabled for performance
+            'verify_subdomains': os.getenv('VERIFY_SUBDOMAINS', 'false').lower() == 'true',  # Disabled for speed
             'filter_wildcards': os.getenv('FILTER_WILDCARDS', 'true').lower() == 'true',
-            'verbose': os.getenv('VERBOSE_OUTPUT', 'true').lower() == 'true'
+            'verbose': os.getenv('VERBOSE_OUTPUT', 'true').lower() == 'true',
+            'smart_wordlist': os.getenv('SMART_WORDLIST', 'true').lower() == 'true',
+            'batch_dns': os.getenv('BATCH_DNS', 'true').lower() == 'true',
+            'permutation_enabled': os.getenv('PERMUTATION_ENABLED', 'true').lower() == 'true',
+            'doh_enabled': os.getenv('DOH_ENABLED', 'true').lower() == 'true',
+            'retry_attempts': int(os.getenv('RETRY_ATTEMPTS', '3')),  # New retry setting
+            'connection_timeout': int(os.getenv('CONNECTION_TIMEOUT', '15'))  # New connection timeout
         }
 
         # API Keys
@@ -220,6 +226,67 @@ ________                            .__          ___________.__             .___
         except:
             return False
 
+    def robust_request(self, url, headers=None, timeout=None, max_retries=None):
+        """Make HTTP request with retry logic and better timeout handling"""
+        if timeout is None:
+            timeout = self.config['http_timeout']
+        if max_retries is None:
+            max_retries = self.config['retry_attempts']
+
+        for attempt in range(max_retries):
+            try:
+                response = self.session.get(
+                    url,
+                    timeout=(self.config['connection_timeout'], timeout),
+                    headers=headers,
+                    verify=False,
+                    allow_redirects=True
+                )
+                return response
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                if attempt < max_retries - 1:
+                    time.sleep(1)  # Brief delay before retry
+                    continue
+                else:
+                    raise e
+            except Exception as e:
+                raise e
+
+    def generate_smart_wordlist(self, domain):
+        """Generate smart wordlist based on domain patterns"""
+        smart_words = set()
+
+        # Extract company name from domain
+        company_name = domain.split('.')[0]
+
+        # Common patterns
+        patterns = [
+            'www', 'mail', 'email', 'webmail', 'secure', 'ssl', 'admin', 'administrator',
+            'api', 'app', 'apps', 'dev', 'development', 'test', 'testing', 'stage', 'staging',
+            'prod', 'production', 'demo', 'beta', 'alpha', 'preview', 'temp', 'temporary',
+            'old', 'new', 'backup', 'bak', 'archive', 'static', 'assets', 'cdn', 'media',
+            'images', 'img', 'files', 'download', 'downloads', 'upload', 'uploads',
+            'ftp', 'sftp', 'ssh', 'vpn', 'remote', 'portal', 'gateway', 'proxy',
+            'blog', 'news', 'forum', 'support', 'help', 'docs', 'documentation',
+            'shop', 'store', 'ecommerce', 'cart', 'checkout', 'payment', 'pay',
+            'account', 'accounts', 'profile', 'user', 'users', 'member', 'members',
+            'login', 'signin', 'signup', 'register', 'auth', 'oauth', 'sso',
+            'dashboard', 'panel', 'control', 'manage', 'management', 'console'
+        ]
+
+        # Add base patterns
+        smart_words.update(patterns)
+
+        # Add company-specific patterns
+        if company_name:
+            smart_words.update([
+                f'{company_name}-api', f'{company_name}-app', f'{company_name}-dev',
+                f'api-{company_name}', f'app-{company_name}', f'dev-{company_name}',
+                f'{company_name}api', f'{company_name}app', f'{company_name}dev'
+            ])
+
+        return list(smart_words)
+
     def certificate_transparency(self, domain):
         """Search Certificate Transparency logs"""
         self.log("Searching Certificate Transparency logs...", 'info')
@@ -271,10 +338,20 @@ ________                            .__          ___________.__             .___
         self.log(f"Found {found_count} subdomains from CT logs", 'success')
 
     def dns_bruteforce(self, domain):
-        """DNS brute force with wordlist"""
+        """DNS brute force with smart wordlist"""
         self.log("Starting DNS brute force...", 'info')
 
-        wordlist = self.load_wordlist()
+        # Use smart wordlist if enabled
+        if self.config.get('smart_wordlist', False):
+            try:
+                wordlist = self.generate_smart_wordlist(domain)
+                self.log(f"Using smart wordlist with {len(wordlist)} entries", 'info')
+            except Exception as e:
+                self.log(f"Smart wordlist generation failed: {e}, using default", 'warning')
+                wordlist = self.load_wordlist()
+        else:
+            wordlist = self.load_wordlist()
+
         found_count = 0
 
         def check_subdomain(word):
@@ -293,6 +370,70 @@ ________                            .__          ___________.__             .___
                 found_count += future.result()
 
         self.log(f"DNS brute force completed. Found {found_count} subdomains", 'success')
+
+    def dns_over_https(self, domain):
+        """DNS over HTTPS for additional subdomain discovery"""
+        self.log("Querying DNS over HTTPS sources...", 'info')
+
+        doh_sources = [
+            f"https://dns.google/resolve?name={domain}&type=A",
+            f"https://cloudflare-dns.com/dns-query?name={domain}&type=A"
+        ]
+
+        found_count = 0
+        for source in doh_sources:
+            try:
+                headers = {'Accept': 'application/dns-json'}
+                response = self.session.get(source, headers=headers, timeout=5)
+                if response.status_code == 200:
+                    data = response.json()
+                    answers = data.get('Answer', [])
+                    for answer in answers:
+                        name = answer.get('name', '').lower().rstrip('.')
+                        if self.is_valid_subdomain(name, domain):
+                            self.subdomains.add(name)
+                            found_count += 1
+            except:
+                continue
+
+        self.log(f"Found {found_count} subdomains from DNS over HTTPS", 'success')
+
+    def subdomain_permutation(self, domain):
+        """Generate subdomain permutations based on found subdomains"""
+        self.log("Generating subdomain permutations...", 'info')
+
+        if len(self.subdomains) < 2:
+            return
+
+        found_count = 0
+        existing_subs = list(self.subdomains)
+
+        # Extract subdomain parts
+        sub_parts = set()
+        for sub in existing_subs:
+            if sub != domain:
+                parts = sub.replace(f'.{domain}', '').split('.')
+                sub_parts.update(parts)
+
+        # Generate permutations
+        permutations = []
+        for part1 in list(sub_parts)[:10]:  # Limit to avoid explosion
+            for part2 in list(sub_parts)[:10]:
+                if part1 != part2:
+                    permutations.extend([
+                        f"{part1}-{part2}.{domain}",
+                        f"{part1}{part2}.{domain}",
+                        f"{part2}-{part1}.{domain}"
+                    ])
+
+        # Test permutations
+        valid_perms = self.batch_dns_resolve(permutations[:50])  # Limit testing
+        for perm in valid_perms:
+            if perm not in self.subdomains:
+                self.subdomains.add(perm)
+                found_count += 1
+
+        self.log(f"Found {found_count} subdomains from permutations", 'success')
 
     def ssl_certificate_check(self, domain):
         """Check SSL certificate for Subject Alternative Names"""
@@ -584,10 +725,18 @@ ________                            .__          ___________.__             .___
 
         self.log(f"Starting recursive discovery (depth {depth + 1})...", 'info')
 
-        current_subdomains = list(self.subdomains)
+        # Limit subdomains for performance - only process top 20
+        current_subdomains = list(self.subdomains)[:20]
         new_subdomains = set()
+        start_time = time.time()
+        max_time = 30  # 30 second timeout
+        processed = 0
 
         for subdomain in current_subdomains:
+            # Check timeout
+            if time.time() - start_time > max_time:
+                self.log(f"Recursive discovery timeout after {processed} subdomains", 'warning')
+                break
             if subdomain != domain:  # Don't recurse on the main domain
                 # Try common patterns
                 patterns = ['www', 'api', 'admin', 'dev', 'test', 'staging', 'mail', 'ftp']
@@ -604,6 +753,8 @@ ________                            .__          ___________.__             .___
                     except:
                         pass
 
+            processed += 1
+
         if new_subdomains and depth < self.config['recursive_depth'] - 1:
             self.recursive_discovery(domain, depth + 1)
 
@@ -615,8 +766,12 @@ ________                            .__          ___________.__             .___
 
         domain = self.get_domain(url)
 
+        # Add timeout protection for the entire JS analysis
+        start_time = time.time()
+        max_js_time = 30  # Maximum 30 seconds for JS analysis
+
         try:
-            response = self.session.get(url, timeout=self.config['http_timeout'], verify=False)
+            response = self.robust_request(url, timeout=15)  # Shorter timeout for initial request
             if response.status_code != 200:
                 return
 
@@ -645,7 +800,7 @@ ________                            .__          ___________.__             .___
                         src = urljoin(url, src)
 
                     try:
-                        js_response = self.session.get(src, timeout=self.config['http_timeout'], verify=False)
+                        js_response = self.robust_request(src)
                         if js_response.status_code == 200:
                             all_js_content.append(js_response.text)
                     except:
