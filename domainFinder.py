@@ -765,6 +765,7 @@ ________                            .__          ___________.__             .___
         self.log("Analyzing JavaScript files...", 'info')
 
         domain = self.get_domain(url)
+        self.domain = domain  # Store domain for save_results method
 
         # Add timeout protection for the entire JS analysis
         start_time = time.time()
@@ -851,6 +852,7 @@ ________                            .__          ___________.__             .___
         self.print_banner()
 
         domain = self.get_domain(url)
+        self.domain = domain  # Store domain for save_results method
         self.log(f"Starting comprehensive subdomain enumeration for: {domain}", 'info')
         self.log(f"Using {self.config['max_threads']} threads", 'info')
         print("-" * 80)
@@ -928,34 +930,72 @@ ________                            .__          ___________.__             .___
             except:
                 return None
 
-    def save_results(self, results, output_dir='results'):
-        """Save results to files"""
+    def save_results(self, results, output_base_dir='results'):
+        """Save results to files in domain_time_date format"""
+        # Create domain_time_date directory format
+        domain_clean = self.domain.replace('.', '_')
+        timestamp_dir = datetime.now().strftime('%H%M_%m%d')
+        output_dir = os.path.join(output_base_dir, f'{domain_clean}_{timestamp_dir}')
+        
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
-        # Save subdomains
+        # Save subdomains with status codes
         subdomain_file = os.path.join(output_dir, f'subdomains_{timestamp}.txt')
-        with open(subdomain_file, 'w') as f:
-            for subdomain in results['subdomains']:
+        with open(subdomain_file, 'w', encoding='utf-8') as f:
+            # Write header
+            f.write("================================================================================\n")
+            f.write("RESULTS SUMMARY\n")
+            f.write("================================================================================\n\n")
+            
+            # Write subdomain count
+            f.write(f"Subdomains found ({len(results['subdomains'])}):\n")
+            f.write("----------------------------------------\n")
+            
+            # Write subdomains (sorted)
+            sorted_subdomains = sorted(results['subdomains'])
+            for subdomain in sorted_subdomains:
                 f.write(f"{subdomain}\n")
+            
+            f.write("\n" + "="*80 + "\n")
+            f.write("CLICKABLE LINKS WITH STATUS CODES\n")
+            f.write("="*80 + "\n\n")
+            
+            # Check status codes and write clickable HTTPS links
+            self.log("Checking status codes for subdomains...", 'info')
+            total = len(sorted_subdomains)
+            
+            for i, subdomain in enumerate(sorted_subdomains, 1):
+                url = f"https://{subdomain}"
+                status_code = self.check_status_code(url)
+                
+                if status_code:
+                    f.write(f"{url} [{status_code}]\n")
+                else:
+                    f.write(f"{url} [TIMEOUT]\n")
+                
+                # Progress indicator
+                if i % 50 == 0 or i == total:
+                    self.log(f"Status check progress: {i}/{total}", 'debug')
 
         # Save secrets
         if results['secrets']:
             secrets_file = os.path.join(output_dir, f'secrets_{timestamp}.json')
-            with open(secrets_file, 'w') as f:
+            with open(secrets_file, 'w', encoding='utf-8') as f:
                 json.dump(results['secrets'], f, indent=2)
 
         # Save cloud URLs
         if results['cloud_urls']:
             cloud_file = os.path.join(output_dir, f'cloud_urls_{timestamp}.txt')
-            with open(cloud_file, 'w') as f:
+            with open(cloud_file, 'w', encoding='utf-8') as f:
                 for url in results['cloud_urls']:
                     f.write(f"{url}\n")
 
         self.log(f"Results saved to {output_dir}/", 'success')
         return subdomain_file
+
 
 def main():
     """Main function"""

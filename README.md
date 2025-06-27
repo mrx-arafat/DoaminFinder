@@ -1,277 +1,159 @@
-<div align="center">
+# Domain Finder 🔍
 
-# 🔍 Domain Finder v3.0
+**Simple & Powerful Subdomain Discovery Tool**
 
-**Advanced Subdomain Discovery Tool with Multiple Techniques**
+[![Python](https://img.shields.io/badge/Python-3.7+-blue.svg)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Author](https://img.shields.io/badge/Author-Easin%20Arafat-red.svg)](https://profile.arafatops.com)
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub](https://img.shields.io/badge/github-mrx--arafat-green.svg)](https://github.com/mrx-arafat)
+> Fast subdomain discovery with HTTP status codes - Find subdomains and see which ones are live!
 
-*Discover hidden subdomains with cutting-edge techniques and comprehensive API integrations*
+## ✨ What It Does
 
-</div>
+Domain Finder discovers subdomains and shows you their HTTP status codes so you know which ones are actually working:
 
----
+```
+🔗 Clickable Links with Status Codes:
+https://www.example.com [200]  ← Working!
+https://api.example.com [404]  ← Not found
+https://admin.example.com [403] ← Forbidden (interesting!)
+https://dev.example.com [503]  ← Service down
+```
+
+## 🚀 Quick Start
+
+### 1. Install
+```bash
+git clone https://github.com/mrx-arafat/domain-finder.git
+cd domain-finder
+pip install -r requirements.txt
+```
+
+### 2. Run
+```bash
+python domainFinder.py -u example.com
+```
+
+That's it! 🎉
+
+## 📖 Usage Examples
+
+### Basic Scan
+```bash
+# Simple subdomain discovery
+python domainFinder.py -u tesla.com
+```
+
+### With API Keys (Better Results)
+```bash
+# Create .env file with your API keys
+echo "SECURITYTRAILS_API_KEY=your_key" > .env
+echo "VIRUSTOTAL_API_KEY=your_key" >> .env
+
+# Run scan
+python domainFinder.py -u tesla.com
+```
+
+### Advanced Options
+```bash
+# Fast scan with more threads
+python domainFinder.py -u tesla.com -t 100
+
+# Recursive discovery (finds more subdomains)
+python domainFinder.py -u tesla.com --recursive
+
+# Use large wordlist for thorough scanning
+python domainFinder.py -u tesla.com --large-wordlist
+
+# Authenticated scan with cookies
+python domainFinder.py -u tesla.com -c "session=abc123; token=xyz789"
+```
+
+## 🎯 Key Features
+
+- **Multiple Discovery Methods** - Certificate logs, DNS brute force, APIs, GitHub scanning
+- **HTTP Status Codes** - See which subdomains are live (200), forbidden (403), not found (404), etc.
+- **Fast & Efficient** - Multi-threaded scanning with smart caching
+- **API Integration** - Works with SecurityTrails, VirusTotal, Shodan for better results
+- **Cookie Support** - Scan authenticated areas with your session cookies
+- **Smart Output** - Results saved as `domain_time_date` format
+
+## 📊 Sample Output
+
+```
+Domain Finder v3.0 - Starting scan for tesla.com...
+
+🔗 Clickable Links with Status Codes:
+----------------------------------------
+https://www.tesla.com [200]
+https://shop.tesla.com [200]
+https://service.tesla.com [200]
+https://supercharger.tesla.com [200]
+https://auth.tesla.com [403]
+https://owner-api.tesla.com [401]
+https://internal.tesla.com [404]
+
+[+] Results saved to: tesla_com_1234_0627/subdomains_20250627_123456.txt
+[+] Total subdomains: 936
+```
+
+## ⚙️ Configuration
+
+### Optional API Keys (.env file)
+```bash
+# For better results, add these to .env file:
+SECURITYTRAILS_API_KEY=your_key_here
+VIRUSTOTAL_API_KEY=your_key_here
+SHODAN_API_KEY=your_key_here
+GITHUB_TOKEN=your_token_here
+```
+
+### Common Options
+```bash
+-u, --url          Target domain (required)
+-t, --threads      Number of threads (default: 50)
+-o, --output       Output directory
+--recursive        Find subdomains of subdomains
+--large-wordlist   Use bigger wordlist (slower but more thorough)
+--quiet            Less output
+--json             JSON output format
+```
+
+## 📁 Output Files
+
+Results are saved in `domain_time_date/` folder:
+- `subdomains_timestamp.txt` - Main results with status codes
+- `secrets_timestamp.json` - Any secrets found (API keys, etc.)
+- `cloud_urls_timestamp.txt` - Cloud service URLs
+
+## 🛠️ Troubleshooting
+
+**No subdomains found?**
+- Add API keys to `.env` file for better results
+- Try `--large-wordlist` for more thorough scanning
+- Use `--recursive` to find subdomains of subdomains
+
+**Slow scanning?**
+- Increase threads: `-t 100`
+- Skip techniques: `--skip-github --skip-js`
+
+**Need authentication?**
+- Use cookies: `-c "session=your_session_cookie"`
+
+## 🤝 Contributing
+
+Found a bug or want to add a feature? Pull requests welcome!
+
+## 📄 License
+
+MIT License - feel free to use and modify!
 
 ## 👨‍💻 Author
 
 **Easin Arafat**
-🌐 Website: [profile.arafatops.com](https://profile.arafatops.com)
-🐙 GitHub: [mrx-arafat](https://github.com/mrx-arafat)
+- Website: [profile.arafatops.com](https://profile.arafatops.com)
+- GitHub: [@mrx-arafat](https://github.com/mrx-arafat)
 
 ---
 
-## 🚀 Features
-
-### 🎯 Core Discovery Techniques
-- ✅ **Certificate Transparency Logs** - Query CT logs from multiple sources (crt.sh, Censys)
-- ✅ **DNS Brute Forcing** - High-speed DNS resolution with custom wordlists
-- ✅ **SSL Certificate Analysis** - Extract subdomains from SAN fields
-- ✅ **DNS Zone Transfer** - Attempt zone transfers from nameservers
-- ✅ **Search Engine Dorking** - Google, Bing, DuckDuckGo queries
-- ✅ **Third-party APIs** - SecurityTrails, VirusTotal, Shodan, Censys
-- ✅ **GitHub Repository Scanning** - Search code repositories for subdomains
-- ✅ **Passive DNS Databases** - RiskIQ PassiveTotal, AlienVault OTX
-- ✅ **JavaScript Analysis** - Extract subdomains and secrets from JS files
-- ✅ **Recursive Discovery** - Multi-level subdomain enumeration
-
-### ⚡ Advanced Features
-- 🔥 **Multi-threading** - Concurrent execution for maximum speed
-- 🔥 **Request Caching** - Avoid duplicate API calls
-- 🔥 **Rate Limiting** - Respectful API usage
-- 🔥 **Wildcard Filtering** - Remove false positives
-- 🔥 **DNS Verification** - Validate subdomain existence
-- 🔥 **Cookie Support** - Authenticated scanning
-- 🔥 **Proxy Support** - HTTP/HTTPS/SOCKS proxy configuration
-- 🔥 **Custom Wordlists** - Use your own subdomain lists
-- 🔥 **Multiple Output Formats** - Text, JSON, organized files
-- 🔥 **Clickable Links** - Direct access to discovered subdomains
-
----
-
-## 📦 Installation
-
-### Prerequisites
-```bash
-# Python 3.8+ required
-python --version
-
-# Clone the repository
-git clone https://github.com/mrx-arafat/domain-finder.git
-cd domain-finder
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### Quick Setup
-```bash
-# Copy environment template
-cp .env .env.local
-
-# Edit .env file with your API keys (optional but recommended)
-nano .env
-
-# Run your first scan
-python domainFinder.py -u https://example.com
-```
-
----
-
-## 🔧 Configuration
-
-### API Keys (Optional but Recommended)
-Add your API keys to the `.env` file for enhanced discovery:
-
-```bash
-# SecurityTrails - https://securitytrails.com/corp/api
-SECURITYTRAILS_API_KEY=your_key_here
-
-# VirusTotal - https://www.virustotal.com/gui/my-apikey
-VIRUSTOTAL_API_KEY=your_key_here
-
-# Shodan - https://account.shodan.io/
-SHODAN_API_KEY=your_key_here
-
-# Censys - https://censys.io/account/api
-CENSYS_API_ID=your_id_here
-CENSYS_API_SECRET=your_secret_here
-
-# GitHub - https://github.com/settings/tokens
-GITHUB_TOKEN=your_token_here
-```
-
----
-
-## 🎯 Usage
-
-### Basic Usage
-```bash
-# Simple subdomain enumeration
-python domainFinder.py -u https://example.com
-
-# With cookies for authenticated scanning
-python domainFinder.py -u https://example.com -c "session=abc123; token=xyz789"
-
-# High-performance scanning with more threads
-python domainFinder.py -u https://example.com -t 100 --large-wordlist
-
-# Fast scanning (skip slow techniques)
-python domainFinder.py -u https://example.com --skip-github --skip-search --quiet
-```
-
-### Advanced Usage
-```bash
-# Recursive discovery with custom depth
-python domainFinder.py -u https://example.com --recursive --depth 5
-
-# Custom wordlist and output directory
-python domainFinder.py -u https://example.com --custom-wordlist wordlists/custom.txt -o results/
-
-# JSON output for automation
-python domainFinder.py -u https://example.com --json > results.json
-
-# Quiet mode for scripts
-python domainFinder.py -u https://example.com --quiet
-
-# Skip specific techniques for faster execution
-python domainFinder.py -u https://example.com --skip-brute --skip-apis --skip-js
-
-# Comprehensive scan with all features
-python domainFinder.py -u https://example.com --recursive --large-wordlist -t 100 -o comprehensive_results/
-```
-
-### Performance Optimization
-```bash
-# Ultra-fast scan (essential techniques only)
-python domainFinder.py -u https://example.com --skip-github --skip-search --skip-js --quiet
-
-# Medium speed scan (skip slow techniques)
-python domainFinder.py -u https://example.com --skip-github --skip-search
-
-# Full scan with optimized settings
-python domainFinder.py -u https://example.com -t 50 --large-wordlist
-
-# API-focused scan (requires API keys)
-python domainFinder.py -u https://example.com --skip-brute --skip-search --skip-github
-```
-
-### Cookie-based Authentication
-```bash
-# Simple cookie authentication
-python domainFinder.py -u https://example.com -c "sessionid=abc123"
-
-# Multiple cookies
-python domainFinder.py -u https://example.com -c "sessionid=abc123; csrftoken=xyz789; auth=token123"
-
-# JSON cookie format
-python domainFinder.py -u https://example.com -c '{"domain": "example.com", "name": "session", "value": "abc123"}'
-```
-
----
-
-## 📊 Example Output
-
-```
-🔍 Domain Finder v3.0 - Enhanced Subdomain Discovery
-
-Subdomains found (15):
-----------------------------------------
-api.example.com
-blog.example.com
-cdn.example.com
-dev.example.com
-docs.example.com
-mail.example.com
-shop.example.com
-staging.example.com
-test.example.com
-www.example.com
-
-🔗 Clickable Links:
-----------------------------------------
-https://api.example.com
-https://blog.example.com
-https://cdn.example.com
-https://dev.example.com
-https://docs.example.com
-https://mail.example.com
-https://shop.example.com
-https://staging.example.com
-https://test.example.com
-https://www.example.com
-
-✅ Results saved to results/subdomains_20250626_123456.txt
-```
-
----
-
-## 🛠️ Command Line Options
-
-### Core Options
-| Option | Description | Example |
-|--------|-------------|---------|
-| `-u, --url` | Target URL or domain (required) | `-u https://example.com` |
-| `-c, --cookie` | Cookies for authenticated scanning | `-c "session=abc123"` |
-| `-o, --output` | Output directory (default: results) | `-o my_results/` |
-| `-t, --threads` | Number of threads (default: 50) | `-t 100` |
-| `--quiet` | Suppress banner and progress messages | `--quiet` |
-
-### Discovery Options
-| Option | Description | Example |
-|--------|-------------|---------|
-| `--large-wordlist` | Use large wordlist for brute forcing | `--large-wordlist` |
-| `--custom-wordlist` | Path to custom wordlist file | `--custom-wordlist wordlists/custom.txt` |
-| `--recursive` | Enable recursive subdomain discovery | `--recursive` |
-| `--depth` | Maximum recursion depth (default: 3) | `--depth 5` |
-
-### Output Options
-| Option | Description | Example |
-|--------|-------------|---------|
-| `--json` | Output results in JSON format | `--json` |
-| `--save-results` | Save results to files | `--save-results` |
-
-### Performance Options (Skip Techniques)
-| Option | Description | Use Case |
-|--------|-------------|----------|
-| `--skip-brute` | Skip DNS brute forcing | Fast scan, when wordlist is slow |
-| `--skip-search` | Skip search engine dorking | Avoid rate limiting |
-| `--skip-apis` | Skip third-party APIs | No API keys available |
-| `--skip-github` | Skip GitHub scanning | Fastest execution |
-| `--skip-js` | Skip JavaScript analysis | Skip slow JS parsing |
-
-### Quick Command Examples
-```bash
-# Ultra-fast scan
-python domainFinder.py -u https://example.com --skip-github --skip-search --quiet
-
-# Comprehensive scan
-python domainFinder.py -u https://example.com --recursive --large-wordlist -t 100
-
-# API-only scan
-python domainFinder.py -u https://example.com --skip-brute --skip-search --skip-github
-
-# Authenticated scan with cookies
-python domainFinder.py -u https://example.com -c "sessionid=abc123; csrftoken=xyz789"
-```
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-<div align="center">
-
-**Made with ❤️ by [Easin Arafat](https://profile.arafatops.com)**
-
-⭐ Star this repository if you found it helpful!
-
-</div>
+⭐ **Star this repo if you find it useful!** ⭐
